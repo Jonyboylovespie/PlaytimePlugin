@@ -1,0 +1,29 @@
+name: PlaytimePlugin
+version: '${project.version}'
+main: jonyboylovespie.playtimeplugin.playtimePlugin.PlaytimePlugin
+api-version: '1.21'
+authors: [Jonyboylovespie]
+description: Tracks player's playtime daily and total
+
+commands:
+  playtime:
+    description: Check your or another player's playtime
+    usage: /<command> [player]
+    aliases: [pt]
+    permission: playtime.use
+  playLimit:
+    description: Set a daily playtime limit in minutes (0 disables)
+    usage: /<command> Set <limit>
+    aliases: [pl]
+    permission: playtime.admin
+
+permissions:
+  playtime.use:
+    description: Allows players to check their own playtime
+    default: true
+  playtime.others:
+    description: Allows players to check other players' playtime
+    default: op
+  playtime.admin:
+    description: Allows changing playtime limits
+    default: op
