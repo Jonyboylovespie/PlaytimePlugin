@@ -11,26 +11,34 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.time.ZonedDateTime;
 
 public final class PlaytimePlugin extends JavaPlugin implements Listener
 {
     private Map<UUID, Long> joinTimes;
+    private Map<UUID, Long> lastMoveTimes;
+    private Set<UUID> afkPlayers;
     private FileConfiguration config;
     private String currentDate;
     private BukkitTask timeCheckTask;
     private long maxDailyPlaytimeMinutes;
+    private boolean ignoreAfkPlayers;
 
     @Override
     public void onEnable()
     {
         joinTimes = new HashMap<>();
+        lastMoveTimes = new HashMap<>();
+        afkPlayers = new HashSet<>();
         currentDate = LocalDate.now().toString();
 
         saveDefaultConfig();
@@ -46,8 +54,13 @@ public final class PlaytimePlugin extends JavaPlugin implements Listener
             config.set("maxDailyPlaytimeMinutes", 0);
         }
 
+        if (!config.contains("ignoreAfkPlayers"))
+        {
+            config.set("ignoreAfkPlayers", false);
+        }
         saveConfig();
 
+        ignoreAfkPlayers = config.getBoolean("ignoreAfkPlayers", false);
         maxDailyPlaytimeMinutes = config.getLong("maxDailyPlaytimeMinutes");
 
         String storedDate = config.getString("date", currentDate);
@@ -59,6 +72,7 @@ public final class PlaytimePlugin extends JavaPlugin implements Listener
         getServer().getPluginManager().registerEvents(this, this);
         scheduleDailyReset();
         startTimeCheckTask();
+        startAfkCheckTask();
     }
 
     @Override
@@ -107,7 +121,9 @@ public final class PlaytimePlugin extends JavaPlugin implements Listener
     {
         Player player = event.getPlayer();
         joinTimes.put(player.getUniqueId(), System.currentTimeMillis());
-
+        lastMoveTimes.put(player.getUniqueId(), System.currentTimeMillis());
+        afkPlayers.remove(player.getUniqueId());
+        resetTabName(player);
         Bukkit.getScheduler().runTaskLater(this, () -> checkPlayerTimeLimits(player), 20L);
     }
 
@@ -116,6 +132,87 @@ public final class PlaytimePlugin extends JavaPlugin implements Listener
     {
         Player player = event.getPlayer();
         savePlayerPlaytime(player);
+        lastMoveTimes.remove(player.getUniqueId());
+        afkPlayers.remove(player.getUniqueId());
+        resetTabName(player);
+    }
+
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event)
+    {
+        if (event.getTo() == null) return;
+        Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+        if (event.getFrom().getX() != event.getTo().getX() ||
+            event.getFrom().getY() != event.getTo().getY() ||
+            event.getFrom().getZ() != event.getTo().getZ())
+        {
+            lastMoveTimes.put(playerId, System.currentTimeMillis());
+            if (afkPlayers.contains(playerId))
+            {
+                afkPlayers.remove(playerId);
+                resetTabName(player);
+                player.sendMessage(ChatColor.GRAY + "You are no longer AFK.");
+            }
+        }
+    }
+
+    private void startAfkCheckTask()
+    {
+        Bukkit.getScheduler().runTaskTimer(this, () ->
+        {
+            long now = System.currentTimeMillis();
+            for (Player player : Bukkit.getOnlinePlayers())
+            {
+                UUID playerId = player.getUniqueId();
+                long lastMove = lastMoveTimes.getOrDefault(playerId, now);
+                boolean isAfk = afkPlayers.contains(playerId);
+                if (!isAfk && now - lastMove >= 60000)
+                {
+                    afkPlayers.add(playerId);
+                    setAfkTabName(player);
+                    player.sendMessage(ChatColor.GRAY + "You are now AFK.");
+                }
+                else if (isAfk && now - lastMove < 60000)
+                {
+                    afkPlayers.remove(playerId);
+                    resetTabName(player);
+                }
+            }
+        }, 20L, 20L);
+    }
+
+    private void setAfkTabName(Player player)
+    {
+        player.setPlayerListName(ChatColor.GRAY + player.getName());
+    }
+
+    private void resetTabName(Player player)
+    {
+        player.setPlayerListName(ChatColor.RESET + player.getName());
+    }
+
+    @EventHandler
+    public void onPlayerJoinEvent(PlayerJoinEvent event)
+    {
+        Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+        joinTimes.put(playerId, System.currentTimeMillis());
+        lastMoveTimes.put(playerId, System.currentTimeMillis());
+        afkPlayers.remove(playerId);
+        resetTabName(player);
+    }
+
+    @EventHandler
+    public void onPlayerQuitEvent(PlayerQuitEvent event)
+    {
+        Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+        savePlayerPlaytime(player);
+        joinTimes.remove(playerId);
+        lastMoveTimes.remove(playerId);
+        afkPlayers.remove(playerId);
+        resetTabName(player);
     }
 
     private void savePlayerPlaytime(Player player)
@@ -123,6 +220,11 @@ public final class PlaytimePlugin extends JavaPlugin implements Listener
         UUID playerId = player.getUniqueId();
         if (joinTimes.containsKey(playerId))
         {
+            if (ignoreAfkPlayers && afkPlayers.contains(playerId))
+            {
+                joinTimes.put(playerId, System.currentTimeMillis());
+                return;
+            }
             long sessionTime = System.currentTimeMillis() - joinTimes.get(playerId);
             joinTimes.remove(playerId);
 

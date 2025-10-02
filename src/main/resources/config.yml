@@ -1,4 +1,5 @@
 # PlaytimePlugin Configuration
+ignoreAfkPlayers: false
 date: ""
 players: {}
 maxDailyPlaytimeMinutes: 0
