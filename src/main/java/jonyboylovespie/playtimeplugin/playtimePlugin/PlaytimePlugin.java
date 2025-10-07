@@ -395,6 +395,45 @@ public final class PlaytimePlugin extends JavaPlugin implements Listener
                 }
             }
         }
+        if (label.equalsIgnoreCase("playafk") || label.equalsIgnoreCase("pafk"))
+        {
+            if (!sender.hasPermission("playtime.admin"))
+            {
+                sender.sendMessage(ChatColor.RED + "You don't have permission to change this setting.");
+                return true;
+            }
+
+            if (args.length == 0)
+            {
+                sender.sendMessage(ChatColor.YELLOW + "ignoreAfkPlayers is currently " + ChatColor.WHITE + ignoreAfkPlayers + ChatColor.YELLOW + ".");
+                sender.sendMessage(ChatColor.GRAY + "Usage: /" + label + " <on|off|true|false|enable|disable>");
+                return true;
+            }
+
+            String value = args[0].toLowerCase();
+            Boolean newSetting = null;
+            if (value.equals("on") || value.equals("true") || value.equals("enable") || value.equals("enabled"))
+            {
+                newSetting = true;
+            }
+            else if (value.equals("off") || value.equals("false") || value.equals("disable") || value.equals("disabled"))
+            {
+                newSetting = false;
+            }
+
+            if (newSetting == null)
+            {
+                sender.sendMessage(ChatColor.RED + "Invalid value. Use on/off, true/false, enable/disable.");
+                sender.sendMessage(ChatColor.GRAY + "Usage: /" + label + " <on|off|true|false|enable|disable>");
+                return true;
+            }
+
+            ignoreAfkPlayers = newSetting;
+            config.set("ignoreAfkPlayers", newSetting);
+            saveConfig();
+            sender.sendMessage(ChatColor.GREEN + "ignoreAfkPlayers set to " + newSetting + ".");
+            return true;
+        }
         return false;
     }
 

@@ -16,6 +16,11 @@ commands:
     usage: /<command> Set <limit>
     aliases: [pl]
     permission: playtime.admin
+  playafk:
+    description: View or change whether AFK time is ignored when tracking playtime
+    usage: /<command> <on|off|true|false|enable|disable>
+    aliases: [pafk]
+    permission: playtime.admin
 
 permissions:
   playtime.use:
