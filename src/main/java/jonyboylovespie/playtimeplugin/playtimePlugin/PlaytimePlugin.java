@@ -152,6 +152,7 @@ public final class PlaytimePlugin extends JavaPlugin implements Listener
             {
                 afkPlayers.remove(playerId);
                 resetTabName(player);
+                joinTimes.put(playerId, System.currentTimeMillis());
                 player.sendMessage(ChatColor.GRAY + "You are no longer AFK.");
             }
         }
@@ -169,7 +170,9 @@ public final class PlaytimePlugin extends JavaPlugin implements Listener
                 boolean isAfk = afkPlayers.contains(playerId);
                 if (!isAfk && now - lastMove >= 60000)
                 {
+                    savePlayerPlaytime(player);
                     afkPlayers.add(playerId);
+                    joinTimes.put(playerId, System.currentTimeMillis());
                     setAfkTabName(player);
                     player.sendMessage(ChatColor.GRAY + "You are now AFK.");
                 }
@@ -177,6 +180,7 @@ public final class PlaytimePlugin extends JavaPlugin implements Listener
                 {
                     afkPlayers.remove(playerId);
                     resetTabName(player);
+                    joinTimes.put(playerId, now);
                 }
             }
         }, 20L, 20L);
